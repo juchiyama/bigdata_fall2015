@@ -1,0 +1,9 @@
+pipeline
+
+Cleaning
+{
+	mongodb data needs to get cleaned.
+	remove all the html stuff.
+	put it back into mongodb
+
+}

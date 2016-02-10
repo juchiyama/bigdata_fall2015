@@ -1,0 +1,466 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{fullpage}
+\usepackage{listings}
+\usepackage{url}
+\pagestyle{myheadings}
+
+\begin{document}
+
+\lstset{breaklines=true}
+
+\title{RedditNLP}
+\author{John Uchiyama \and Thainan Remboski \and Saptoka Ujwal}
+\date{\today}
+\maketitle
+
+\tableofcontents
+
+\newpage
+
+\section{Introduction and Background}
+
+\subsection{Problem}
+
+Natural Language Processing \cite{nlp} provides
+powerful tools to understand written text. The internet
+contains written text in internet forums and social 
+media sites. 
+
+
+\subsection{Existing Work}
+
+There exists work using programming libraries that
+use both Hadoop and NLP libraries. Most implementations
+and examples found on the internet are simple. Our implementation
+is likely different than most, as we use JSON documents
+as the values of our map reduce implementations. The
+Unstructured Information Management Architecture is a
+well known tool used to analyze data. It supports a pipeline
+architecture and computer clusters ~\cite{UIMA}.
+
+\subsection{Background}
+
+The Reddit website provides an API that can be accessed
+over HTTP. The Python programming language has a wrapper
+for that API that is very simple to use. The Python 
+Reddit Api Wrapper wraps the HTTP requests. 
+Very little knowledge of the API protocol is required in order to use the wrapper~\cite{PRAW}.
+The data scraped from the wrapper is very 'dirty' and requires parsing for markdown text and grammatical mistakes.
+Despite this, there exists considerable information in this
+corpora. Users discuss themselves, their views, and the world
+around them. Investigating this information presents
+an attractive way to understand how individuals participate
+in online web forums.
+
+\subsection{Solution}
+
+Apache Hadoop provides a means to quickly process the Reddit
+corpus. Additionally, there exist many programming libraries
+that support the various tasks of NLP. Some of these libraries have
+been written in Java and Python. The StanfordNLP and Natural
+Language Tool Kit will be used in conjunction with Hadoop
+to evaluate and explore the Reddit corpus~\cite{stanfordnlp, pythonnlp, Shvachko:2010:HDF:1913798.1914427}. 
+
+\section{Objectives}
+
+\subsection{Work Flow}
+
+\subsubsection{Hardware}
+
+Due to the available resources and limited time,
+AWS EMR services appear to be the best hardware solution.
+Writing scripts to install Hadoop or manually
+installing Hadoop would be a laborious process. EMR
+provides an easy way to quickly spool up clusters of up
+to twenty machines. In addition, EMR provides bootup
+scripts and predefined map-reduce steps that allow
+jobs to be run automatically or with minimal
+manual effort. 
+
+Determining the best configured hardware will also
+be easy with EMR, as machine resources can easily
+be chosen. Choosing a single or best fit hardware
+configuration for a particular task will be important.
+
+\subsubsection{Software}
+
+One of the largest problems facing this project is the
+inclusion external programming libraries and the added
+complexity that entails. Extra work will be required
+to create an efficient means to install the external
+libraries, provide the project's own libraries, and
+get the language models on to each machine. Determining
+a streamlined way to get software and language models
+on to cluster machines will be a high priority.
+
+\subsection{Data}
+
+The Reddit corpus exists as JSON data in either text file
+or MongoDB. The MapReduce programming model requires
+that key value pairs be processed for each map
+and reduce iteration. Because the author enjoys
+the convenience of JSON, the code will use JSON as the 
+value in the input and output data. This format
+allows immediate use with MongoDB and with Python.
+JSON as the key allows many potential "values" to
+be encoded into one larger value. This reduces the
+amount of MapReduce jobs that need to be written. Additionally,
+this allows the new information to be incorporated
+immediately into the source data. This permits easy
+extension of the new information with existing
+tools. There exists some overhead in parsing and dumping
+information as JSON.
+
+\subsection{Analysis}
+
+Some Natural Language Processing tasks will be performed.
+Named Entity Recognition, parts of speech tagging, and 
+classification will be performed. Discerning some
+trends from the information created would be a 
+considered a success. \cite{postag1} \cite{postag2}
+
+\section{System Requirements and Use Cases}
+
+\subsection{Hardware}
+
+In addition to Amazon EMR services, a server hosted by the
+University of Missouri Columbia Computer Science
+Department will be used to transfer and hold the corpus.
+Moving the data to EMR requires considerable bandwidth. The
+hosted machines allow one to quickly move gigabytes of data
+in minutes.
+
+\subsection{Software}
+
+The project uses the Natural Language Tool Kit \cite{pythonnlp} and
+StanfordNLP \cite{stanfordnlp}. StanfordNLP requires Java 1.7+ and Python
+requires Python 2.6/2.7. The project uses MapReduce implementations,
+and may use tools like Pig \cite{piglatin} or Hive after the initial processing
+has been completed. Because different Linux distributions
+require different methods of installing software, the bootscripts
+that install python libraries are distribution specific. For this
+reason, the project requires a Debian-based Linux OS. Translating
+the bootscripts into a Red Hat install script should be trivial.
+Bootstrap scripts are included in the project.
+
+Initial development requires some work with MongoDB, either to
+dump data or store it. Though, this component is optional
+as the source data can exist as text files or a database.
+
+\subsection{Use Cases}
+
+The named entity recognition task annotations data
+such that fields can be indexed and later searched in a database.
+In a future application, the data gathered would be searched
+through a web application.
+
+\subsubsection{Author}
+
+For author x ...
+\begin{itemize}
+	\item Select the most visited subreddit.
+	\item Select determine what days the author has the most activity.
+	\item Determine the subject of his conversation.
+	\item Determine the people, places, and institutions the author discusses.
+\end{itemize}
+
+\subsubsection{Subreddit}
+
+For subreddit x ...
+\begin{itemize}
+	\item Select the most active author.
+	\item Select the day with the most activity.
+	\item Determine the subject of the converstation.
+	\item Determine the people, places, and institutions discussed frequently.
+\end{itemize}
+
+\subsubsection{Named Entity}
+
+For named entity x ...
+\begin{itemize}
+	\item Select the author that discusses it the most.
+	\item Select the day with the entity was mentioned most.
+	\item Select the subreddit that the entity ocurrs in most.
+	\item Determine the context in which the entity is discussed.
+\end{itemize}
+	
+\subsubsection{Nouns}
+
+For noun x ...
+\begin{itemize}
+	\item Select the author that discusses the subject the most.
+	\item Select the day that this subject was discussed the most.
+	\item Select the subreddit that this subject was discussed the most.
+	\item Determine named entities in which this noun is discussed the most.
+\end{itemize}
+
+\section{Design and Methodology}
+
+\subsection{Design}
+
+\subsubsection{Data Cleaning}
+
+Before any significant analysis can be done, the text must be rid of
+any characters that do not contribute to the comprehension of the text.
+This includes the markdown formatting that users use to italicize, bold,
+and perform modifications with. Because the text data is provided in two
+forms, html-full and markdown-full, there exist two strategies to eliminate
+unwanted characters: parse out html or parse out markdown. Removing HTML
+may prove to be the easier option, as there exist programming libraries
+that support html-stripping. 
+
+Additionally, there exist certain character sequences and characters that
+do fir within the language models. Characters like asterisks and carrot
+symbols have no semantic value to nltk models. For this reason,
+They will be parsed out with regular expressions. In addition,
+ellipsis will be removed.
+
+An character encoding issue may arise. The set of valid characters
+may get restricted to the ascii set and may also be restricted to
+a particular ordinal range.
+
+\subsubsection{Named Entity Recognition}
+
+NER requires a number of steps:
+
+\begin{enumerate}
+	\item sentence segmentation
+	\item word tokenization
+	\item parts of speech tagging
+	\item named entity recognition
+\end{enumerate}
+
+NLTK and StanfordNLP provide convenient methods to perform these steps.
+They are very common in NLP. This is how the following sentences
+may change throughout the pipeline.
+
+\begin{lstlisting}
+	"The dog ran. Richard Nixon is president."
+	["The dog ran.", "Richard Nixon is president."]
+	[["The","dog","ran","."],["Richard","Nixon","is","president","."]]
+	[[("The","DT"),("dog","NN"),("ran","VBD")],
+		[("Richard","NNP"),("Nixon","NNP"),("is","VB"),("president","NN")]
+	[[("The","DT","O"),("dog","NN","O"),("ran","VBD","O")],
+		[("Richard","NNP","B"),("Nixon","NNP","I"),("is","VB","O")]]
+\end{lstlisting}
+
+The preceding shows how a text can be split into sentences, into words, into parts
+of speech, and then grouped into named entities. The last stage uses BIO tags.
+
+\subsubsection{Classification}
+
+In this project, simple task is attempted: determine the repost submissions that occur throughout. This is a common problem in Reddit, certain users will take submissions
+from the past and post them later. The Reddit website features a score or points
+to represent their contribution to the site. This score is considered valuable.
+Certain users seek to increase the points they have.
+
+This task will use the NLTK package's Naive Bayes classifier to find the reposts.
+Additionally, since a repost is indicated by a submission and it's comments. The
+classifier will label submissions based upon features that exist in the comments.
+
+There exists another task that will be explored. The website has subreddits or
+subforums. Subreddits are subforums of the site that concentrate on a particular
+subject. This presents the opportunity for an expediated classification process.
+It is thought that if submissions in topical subreddits, like Ukraine\_Conflict
+discuss the fighting going on in Ukraine, then they also have a higher concentration
+of features that indicate that a comment or submission is about Ukraine. 
+The features gotten from that subreddit can then be used to make a classifier
+for that topic. Hopefully, the classifier can be made automatic, through
+a simple heuristic to get the most useful features.
+
+\subsection{Methodology}
+
+\subsubsection{MongoDB}
+
+Before working with the MapReduce programming model, the classification
+tasks and the NER tasks are prototyped with MongoDB as the data 
+source. The documents are simply ran through each process and proven
+to work before implementation in Hadoop.
+
+\subsubsection{Linux Pipes}
+
+\paragraph{Hadoop Streaming with Python} After each task has been tested to work with MongoDB, the map and reduce scripts are written to work with pipes. The
+implementation could 'cat' a JSON file into a map script that prints to stdout
+the annotated JSON documents, sorts the data according to the key, and then reduces the data in a script that reads in the annotated data and then dumps that information to stdout again. This allows quick debugging for MapReduce logic. This is the best
+way to catch bugs before using Hadoop.
+
+\subsubsection{Pseudo Distributed Mode}
+
+After a script can run through the pipes, a script can be made to run
+the map and reduce scripts in Hadoop Pseudo-Distributed Mode. A small
+amount of test data will be used. Though this should demonstrate
+success on the large data set, some problems may only be found
+after or during a full job.
+
+\subsubsection{Amazon EMR}
+
+If the code runs successfully through Pseudo-Distributed Mode, then it
+is likely ready for Amazon EMR. This process requires creating a cluster
+with an acceptable resource configuration, including bootstrap scripts,
+and uploading data. It is wise to put the language models in S3 and using
+the hadoop binary to grab the data from S3.
+
+\section{Implementation}
+
+\subsection{Programming Libraries}
+
+\subsubsection{StanfordNLP}
+
+Running StanfordNLP annotation pipeline's through the Reddit worked well
+on the Pseudo Distributed Mode, but did not work fast enough in 
+Amazon EMR. After some testing, NLTK was chosen as the primary tool.
+
+\subsubsection{NLTK}
+
+NLTK built-ins for named entity recognition complete fast enough on EMR.
+A series of map-reduce scripts facilitate different stages the in 
+a map-reduce pipeline. Because NLTK is not written in Java, Python
+with Hadoop Streaming is used.
+
+\subsection{Data Cleaning}
+To accomplish this, the HTML from the body\_html and selftext\_html fields
+were stripped of their HTML content. The "body" and "body\_html" fields
+are specific to comments. The "selftext" and "selftext\_html" fields are
+specific to submissions. Their data was placed in a 
+"cleansed\_text" field, this simplified implementation, whereas code
+may have had to understand the difference between body and seltext. Additionally, ellipsis and
+characters containing no semantic value were removed from the text.
+Furthermore, certain characters were filtered from the text all together. 
+The data set was ran through this stage first.
+
+\subsection{Named Entity Recognition}
+
+This part takes in output from Data Cleaning as input.
+This program is broken into a few parts. There exist scripts
+in the hadoop/mr/ run the NER operation. One calls
+the mr\_annotate.sh script with the input and output directory
+as arguments. Calling this program requires 'rdt.mod' in the mr directory.
+The file is a zipped rdt module foudn in hadoop/python . This
+is explained further in the user manual. This script
+has some presets for the location of the hadoop streaming
+jar and the scripts it runs.
+The non-MapReduce logic is in the rdt module.
+
+Data coming out of NER contains similar fields to the following:
+
+\begin{lstlisting}
+{
+	"cleansed_text": "Technology ", 
+	"subreddit_id": "t5_2qh61", 
+	"edited": false, 
+	"banned_by": null, 
+	"link_id": "t3_29tbls", 
+	"link_author": "hport11", 
+	"likes": null, 
+	"id": "cioerji", 
+	"named_entities": [[["Technology", "NNP", "B-GPE"]]], 
+	"gilded": 0, 
+	"author": "rad0909", 
+	"parent_id": "t1_ciobi9l",
+	"score": 1, 
+	"approved_by": null, 
+	"controversiality": 0, 
+	"body": "Technology", 
+	"link_title": "Forever alone level 99", 
+	"author_flair_css_class": null, 
+	"downs": 0, 
+	"body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;Technology&lt;/p&gt;\n&lt;/div&gt;", 
+	"is_root": false, 
+	"nouns": ["Technology"], 
+	"subreddit": "WTF", 
+	"score_hidden": false, 
+	"permalink": "http://www.reddit.com/r/WTF/comments/29tbls/forever_alone_level_99/cioerji", 
+	"name": "t1_cioerji", 
+	"submission": "419 :: Forever alone level 99", 
+	"created": 1404512938.0, 
+	"link_url": "http://i.imgur.com/tusOvTR.jpg", 
+	"created_utc": 1404484138.0, 
+	"conlltags": [[["Technology", "NNP", "B-GPE"]]], 
+	"ups": 1, 
+	"fullname": "t1_cioerji", 
+	"num_reports": null, 
+	"distinguished": null
+}
+
+\end{lstlisting}
+
+
+\subsection{Repost Classification}
+
+For the repost classification task, a set of comments was labeled as if 
+they are related to repost accusations or not. This set of comments was used
+to train a Naive Bayes Classifier to detect another possible comments
+containing repost accusations.
+The objective of this classification is to find authors that repost a lot and
+to check which subreddit is more affected by reposts.
+
+\subsection{Automatic Subreddit Classification}
+
+It is thought that a subreddit pertaining to a particular topic
+to have requisite information to make classifiers. Because each
+subreddit has a topic, each subreddit displays feature that
+indicate the topic. Performing NLP tasks to extract features
+like bag of words and bigrams presents a way to discover these features.
+Taking the most prominent features ought to create a classifier
+that identifies other submissions and comments of
+that topic.
+
+After more research, it was determined that this task requires
+knowledge about unsupervised learning and optimization algorithms.
+More research will determine how unsupervised learning and optimization
+algorithms can produce features that describe the topic of a subreddit.
+There exists no MapReduce implementation of the automatic subreddit
+classification. Additionally, the feature extracted will have to
+consider the conversation of comments and submissions, rather than
+just comments and submissions by themselves.
+
+\section{Testing and Validation}
+
+\subsection{Annotated Reddit Corpus}
+
+In the usual implementation of a NLP pipeline, there exists 
+a 'gold standard' annotated corpora that one can test
+the accuracy of a tagger or classifier. Because the project
+does not include the creation a annotated corpora, there
+is no way to validate the accuracy of the NLTK built-in functions
+against samples from the actual data set.
+
+\subsection{Code}
+
+Code written for the named entity recognition task was developed
+using unit tests. The functionality of each part can be tried
+with test.py script. Usage is defined in the user manual. All
+of the NER task functionality can be tested.
+
+\section{Conclusions}
+
+\subsection{EMR Configuration}
+
+There was a significant performance gain when compute optimized core
+nodes were used. NLP processes require more CPU resources. Additional
+EMR configurations will be considered. The performance gain
+needs to be determined when changing configurations.
+
+Further automating the jobs should be done as well. Getting data
+on to EMR currently is a pain. Future work is going to stage
+data on other servers, such that the EMR servers can download
+the information during bootstrapping stages. 
+
+\subsection{Data Analysis}
+
+Interesting techniques were used to get data, but no analysis
+has been performed. Some statistics need to be ran over the
+data to understand how meaningful the data is. Because there are no
+accuracy or precision measures of NER, data analysis would
+best characterize the data. Instead of determining accuracy,
+the analysis would determine how much useful information
+was pulled.
+
+\bibliographystyle{ieeetr}
+\bibliography{redditnlp2}
+
+% \bibliographystyle{plain}
+% \bibliography{redditnlp2}
+
+\end{document}

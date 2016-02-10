@@ -1,0 +1,7 @@
+There are many files in this project.
+
+the hadoop/python/rdt directory contains the python-reddit code
+the hadoop/mr directory contains all the scripts for map reduce jobs
+the hadoop/python/scripts directory contains the completeness and repost implementation
+
+

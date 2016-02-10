@@ -1,0 +1,244 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{fullpage}
+\usepackage{listings}
+\usepackage{charter}
+\usepackage{hyperref}
+\pagestyle{myheadings}
+
+\begin{document}
+
+\lstset{breaklines=true}
+
+\title{RedditNLP Manual}
+\author{John Uchiyama \and Thainan Remboski \and Saptoka Ujwal}
+\date{\today}
+\maketitle
+
+\tableofcontents
+
+\newpage
+
+\section{Introduction}
+
+\section{Resources}
+
+\subsection{Environment}
+
+It is assumed that the reader is comfortable
+using linux and is familiar with Debian 
+based linux distributions.
+
+It is also assumed that the reader has some
+familiarity with Amazon EMR. Specifically,
+the reader should be able to configure
+identity files necessary for ssh and scp
+access.
+
+\subsubsection{Amazon EMR}
+
+This section discusses how to configure and the choices
+to make when configuring Hadoop through EMR. NLP jobs work
+best with compute optimized core nodes (c1.medium or c3.medium or greater ).
+Previous attempts used m1.medium and the result took around twelve hours
+to complete, though this could be the result of inefficient code.
+
+The following describes a cluster set-up. Of note, AMI 2.4.9 is used
+because it uses apt-get and is debian based. The bootstrap
+action needs to point to the reader's S3 bucket.
+
+\begin{itemize}
+	\item Termination protection: No
+	\item AMI version: 2.4.9
+	\item Uncheck additional software
+	\item Master EC2 Instance Type: m3.xlarge x 1
+	\item Core EC2 Instance Type: c1.medium  x 15
+	\item IAM Roles: Need to be able to download from S3
+	\item Bootstrap Actions: emr\_packages\_nltk.sh
+	\item Auto Terminate: No
+\end{itemize}
+
+NLTK requires corpora, grammars and models in order to run
+much of its functionality. The following link provides a source for individual corpora documents http://www.nltk.org/data.html. It is recommended that the 
+reader downloads everything once, compresses the download, and
+puts the models in S3, so that cluster bootstrap
+stages are fast. Otherwise, the nltk data would have to be
+downloaded from the NLTK download site.
+
+\begin{lstlisting}
+	sudo python -m nltk.downloader -d /usr/share/nltk_data all
+	cd /usr/share/nltk_data
+	tar -zcvf nltk_data.tgz *
+	# put nltk_data.tgz in your S3 bucket.
+\end{lstlisting}
+
+The following is the emr\_packages\_nltk.sh script that the author
+used to install nltk as a bootstrap script. This script
+should likely be changed for the next user, as the
+S3 bucket listed will not work
+
+\begin{lstlisting}
+	# emr_packages_nltk.sh
+	sudo apt-get update
+	sudo apt-get install -q -y python-lxml
+	sudo apt-get install -q -y python-pip
+	sudo pip install nltk
+	sudo pip install pymongo
+	hadoop fs -get s3://uchiyamadeps/nltk_data.tgz ./
+	mkdir -p /usr/share/nltk_data
+	mv nltk_data.tgz /usr/share/nltk_data
+	tar -zxf /usr/share/nltk_data/nltk_data.tgz
+\end{lstlisting}
+
+
+\subsection{Data}
+
+There is provided some sample data that can be ran through
+hadoop. Upon request to the authors, more data
+can be provided. In addition, one may refer to the PRAW
+library to get more data. It is advisable to
+compress any large amount of reddit data and upload
+the data during the bootstrap phase.
+
+\subsection{Operation}
+
+\subsubsection{Familiarization}
+
+Before dealing with AWS, running the examples
+with pipes can help make sure that the correct packages
+are installed. There is a small sample data set in the mr directory.
+
+\begin{lstlisting}
+	cd hadoop/python
+	zip -r rdt.mod rdt
+	mv rdt ../mr
+	cd hadoop/mr
+	cat small_sample.json | ./map_clean.py | sort -k1 | ./reduce_clean.py > clean.json
+	cat clean.json | ./map_annotate.py | sort -k1 | ./reduce_annotate.py > annotated.json
+	cat annotated.json | ./map_ner.py | sort -k1 | ./reduce_ner.py > ner.json
+	cat annotated.json | ./map_datetime.py | sort -k1 | ./reduce_datetime.py > datetime.json
+	cat annotated.json | ./map_subreddit.py | sort -k1 | ./reduce_subreddit.py > subreddit.json
+	cat annotated.json | ./map_user.py | sort -k1 | ./reduce_user.py > user.json
+\end{lstlisting}
+
+If these run successfully, then it is time to set up an Amazon EMR cluster. Note,
+the rdt.mod file allows python to load the custom library during pipe-testing
+and during Amazon EMR operation.
+
+\subsubsection{With EMR}
+
+Double check and see that an updated version of emr\_packages\_nltk.sh is in S3.
+The bootstrap script should reflect the user's set up.
+It should point the the user's s3 bucket. 
+Also, the nltk data tar ball should be in S3 as well.
+The following downloads the nltk language models.
+Put the tarball in S3.
+
+\begin{lstlisting}
+	mkdir nltk_data
+	python -m nltk.downloader -d ./nltk_data	 all
+	tar -zcvf nltk_data.tgz *
+\end{lstlisting}
+
+Create a cluster according to the specification listed above. While the nodes
+are in the bootstrap stage, copy data to the master node's /mnt directory. The
+/mnt directory is where each node's storage is mounted on to the virtual
+machine.The ~/ or home directory are on different disks. The home directory
+has limited storage space.
+
+\begin{lstlisting}
+	scp -i identity_file.pem data.tgz hadoop@<amazon_emr_public_ip>:/mnt
+	ssh -i identity_file.pem hadoop@<amazon_emr_public_ip>
+	cd /mnt
+	tar -zxvf data.tgz 
+	# If the core nodes are in the running stage, then put the data on hdfs
+	# assuming data.tgz contains one file data.json
+	hadoop fs -mkdir /in
+	hadoop fs -put data.json /in
+\end{lstlisting}
+
+Development required that the project directory be copied to the master node.
+
+\begin{lstlisting}
+	tar -zcvf hadoop.tgz hadoop
+	scp -i identity_file.pem hadoop.tgz hadoop@<amazon_emr_public_ip>:~/
+	ssh -i identity_file.pem hadoop@<amazon_emr_public_ip>
+	tar -zxvf hadoop.tgz # this can take a long time!!
+\end{lstlisting}
+
+If the core nodes are ready and the data is on hdfs, then run 
+jobs by hand or by a script that runs all the code that is known
+to work well in Amazon EMR over the entire dataset.
+
+The following code wraps together all of the stages
+of processing and packages it up in a tarball. The
+script requires that the user put the raw, uncleaned
+data in the /in directory.
+
+This script is found in the hadoop/mr directory.
+
+\begin{lstlisting}
+	# mr_emr_1.0.3.sh
+	# in the hadoop/python directory
+	# zip -r rdt.mod rdt
+	# mv rdt.mod ../mr
+	# cd ../mr
+	# if data not in hdfs
+	# hadoop fs -mkdir /in
+	# hadoop fs -put data.json /in
+	
+	hadoop jar ~/contrib/streaming/hadoop-streaming-1.0.3.jar \
+	-file map_clean.py -mapper map_clean.py \
+	-file reduce_clean.py -reducer reduce_clean.py \
+	-file rdt.mod \
+	-input /in -output /clean
+
+	hadoop jar ~/contrib/streaming/hadoop-streaming-1.0.3.jar \
+	-file map_annotate.py -mapper map_annotate.py \
+	-file reduce_annotate.py -reducer reduce_annotate.py \
+	-file rdt.mod \
+	-input /clean -output /annotated
+
+	hadoop jar ~/contrib/streaming/hadoop-streaming-1.0.3.jar \
+	-file map_ner.py -mapper map_ner.py \
+	-file reduce_ner.py -reducer reduce_ner.py \
+	-file rdt.mod \
+	-input /annotated -output /ner
+
+	hadoop jar ~/contrib/streaming/hadoop-streaming-1.0.3.jar \
+	-file map_subreddit.py -mapper map_subreddit.py \
+	-file reduce_subreddit.py -reducer ./reduce_subreddit.py \
+	-file rdt.mod \
+	-input /annotated -output /subreddit
+
+	hadoop jar ~/contrib/streaming/hadoop-streaming-1.0.3.jar \
+	-file map_user.py -mapper map_user.py \
+	-file reduce_user.py -reducer reduce_user.py \
+	-file rdt.mod \
+	-input /annotated -output /user_out
+
+	mkdir /mnt/pkg
+	mkdir /mnt/pkg/clean
+	mkdir /mnt/pkg/annotated
+	mkdir /mnt/pkg/ner34
+	mkdir /mnt/pkg/subreddit
+	mkdir /mnt/pkg/user
+
+	hadoop fs -get /clean /mnt/pkg/clean
+	hadoop fs -get /annotated /mnt/pkg/annotated
+	hadoop fs -get /ner /mnt/pkg/ner
+	hadoop fs -get /subreddit /mnt/pkg/subreddit
+	hadoop fs -get /user_out /mnt/pkg/user
+
+	tar -zcvf /mnt/rdt_data.tgz /mnt/pkg
+
+\end{lstlisting}
+
+At the end, one can then download this file
+with scp or sftp.
+
+\begin{lstlisting}
+	scp -i identity\_file.pem hadoop@<amazon_emr_public_ip>:/mnt/rdt\_data.tgz ./
+\end{lstlisting}
+
+\end{document}

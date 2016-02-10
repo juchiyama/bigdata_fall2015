@@ -1,0 +1,26 @@
+python
+	hadoop streaming
+	xml-data cleaning
+	basic operations
+	packaging modules with the hadoop job
+	installing python modules on to EMR servers
+	writing the bootstrap scripts
+
+java
+	map reduce applications
+	putting the dependencies in the job-jar
+	memory, java heap space
+
+jar
+
+clone the git repository or $ git pull origin master
+copy the /data/deps directory into the home directory
+$ ls
+cd ~/deps
+$ zip -r rdt-app-1.0-SNAPSHOT.jar lib
+$ scp -i <identity_file.pem> rdt-app-1.0.SNAPSHOT.jar hadoop@<AWS_URL>:~/
+$ tar -zcvf hadoop.tgz hadoop
+$ scp -i <identity_file> hadoop.tgz jar hadoop@<AWS_URL>:~/
+
+
+SCREEN SHOTS

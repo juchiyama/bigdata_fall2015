@@ -1,0 +1,595 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{fullpage}
+\usepackage{listings}
+\pagestyle{myheadings}
+
+\begin{document}
+
+\lstset{breaklines=true}
+
+\title{RedditNLP}
+\author{John Uchiyama \and Thainan Remboski \and Saptoka Ujwal}
+\date{\today}
+\maketitle
+
+\paragraph{Summary}
+
+\tableofcontents
+
+\newpage
+
+\section{Introduction and Background}
+
+\paragraph{Introduction}
+Finding quality sources of information on social media sites takes considerable effort. A large amount of content is largely unsavory or uninformative. A particular site, reddit, contains lots of good information mixed in with unsavory information. Within the site, there exists curated lists subforums or subreddits that users have selected for. Though these lists often contain the better information, this facility doesn’t track the quality of the content across subreddits. Because reddit content often contains considerable amounts of text in the forum-discussion organization, there exists the opportunity to apply Natural Language Processing tools to programmatically organize and understand the content. Common NLP tasks include parts of speech tagging, sentiment analysis, and named entity recognition ( NER ). These tasks can be applied to the comments and submissions within reddit. The tasks produce annotations, where a comment or submission associates with the nouns it mentions, the positive, negative, or neutral emotion associated with that post, and the named entities ( ex. people, organizations, places ) involved in the post. Positive sentiment occurring in the same utterance of a named entity, perhaps a company, presents exciting possibilities. Current events, identified by nouns, verbs, named entities, and temporal properties allow NLP applications to determine sentiment of an event. 
+
+Though, the methods used to get these properties are imperfect. NLP applications face many of the following limitations: machine learning models require laborious hand-annotation efforts, extracting semantics from text is largely inaccurate, and spelling errors, syntactic errors, and ambiguity significantly reduce the usefulness of any analysis. Additionally, NLP applications depend on rules and statistical models that incur some level of inaccuracy. In the development of the rules and statistical methods, programming libraries have been created to accelerate application development and answer the problems. Of particular note, the Stanford NLP toolkit provides many convenient models and baseclasses with which to make a data processing pipeline. There exist other packages, where StanfordNLP is one of the more prominent. The Stanford NLP software applied to a large corpus of reddit data set presents an exciting opportunity to learn about social media activity. But, this pursuit requires lots of data processing, due to the size of the corpus and the size and complexities of the models and the algorithms. The reddit corpus so far captured contains several million documents, each with potentially multiple dense paragraphs. The Apache Hadoop software library provides an attractive approach to high-throughput, scalable, distributed data processing. NLP tasks are well suited to this type of processing, because much of the analysis does not require any shared memory between processing tasks. So, the facilities of Hadoop should allow speedy annotation of the reddit corpus. These annotations will allow a powerful ability to organize the content for better human digestion. Part of the effort in this analysis seeks to evaluate the effectiveness of the methods and to also present a way to find meaningful content within reddit.
+
+\newpage
+
+\section{Objectives}
+
+\subsection{Current Events}
+
+The following describe the overarching goals of the project. Each of these
+tasks, will be organized into a results or report datastructure that can be 
+further processed into charts and descriptive reports. 
+
+\subsubsection{Intra-Site Discussion}
+
+Reddit users discuss current events in subreddits across the site. There exist
+subreddits dedicated solely to news and to particular news events. The subreddits present ways to make
+semi-automated classifiers for news events mentioned elsewhere across the site.
+Because of the structure of Reddit, forming rules and label data is extremely easy. 
+
+For example, tracking the ebola outbreak, the ukrainian conflict, or the ISIS conflict
+would provide significant information. Understanding the prevalence, sentiment, and
+related entities provides considerable information.
+
+\subsubsection{Temporal Event Tracking}
+
+Locating the mention of a news event is the first step into meaningful analysis.
+Applying to mentions of a news event to time, provides a way to gauge the relevancy
+or popularity of a topic. Additional application of sentiment, then provides
+exciting ways to understand news events.
+
+\subsection{Content Labels}
+
+\subsubsection{Memes}
+
+Memes exists throughout reddit and exist as a entities that rise and fall in popularity. Tracking
+their prevalence would be a way to gauge the evolution of the reddit community. 
+
+\subsubsection{Filter Bad Content}
+
+There exists many and a diverse amount of unsavory content on Reddit. The ability to remove and quantify unsavory
+content allows one to characterize reddit content and also improve the user experience. Though subject,
+providing a way to describe the 'quality' of reddit would be interesting to track over the lifespan 
+of Reddit. 
+
+\subsubsection{Contributor Status}
+
+Each reddit user contributes to the 'community feel' of the site. Identify
+the qualities of each user. For each author, quantify the prevalence
+of each quality. As an example, track the ratio of positive and negative sentiment
+said by an author. 
+
+\subsubsection{Reposts}
+
+The Reddit community polices itself for original submissions. For each author,
+track each instance of reposts. A repost can be identified by the comments of a
+submission. A sufficient number of 'repost' call-outs qualifies a submission
+as a repost.
+
+\subsubsection{Named Entity Trends}
+
+Within reddit, many current events are discussed. These current events necessitate
+the mention of a named entity. For example, the current Ukraine-conflict may mention
+Vladmir Putin, Ukraine, and Russia in the same post. Identifying these entities and
+their prevalence within the site could help summarize the ongoing events within reddit.
+
+\subsection{Data Consistency}
+
+\subsubsection{Completeness}
+
+The reddit corpus is actively downloaded on a single machine and replicated on a another.
+Thus, there exist gaps in the completeness of the corpus. Thankfully, the ids that identify
+comments and submissions across reddit are sequential and unique. This means that 
+the ids can be ordered and evaluated for absences of data. A means to gather the missing
+items, and then set a robot to get the new items would improve the integrity of
+the corpus.
+
+\subsubsection{Connectedness}
+
+Tied into completeness, understanding the linkedness or whether there exists any disjoint
+forests in reddit would be invaluable. The reddit website naturally forms into a tree structure,
+where the reddit-site is the root, subreddits span from the root, submissions span from the subreddits,
+comments span from the submissions, and comments span from other comments. If there exist a considerable
+number of missing posts, then the most recent absent data could retrieved to fill the gaps. Maintaining
+the conversational structure of reddit is necessary for semantic understanding.
+
+\subsubsection{Well-Formedness}
+
+The Reddit corpus originates as Markdown text and resultant HTML. Additionally, there exists elements
+like http links and inter-site linkages in the comments that are unique to HTML and Markdown text.
+Understanding the presence of NLP-inhibiting formatting would be useful to evaluate the effectiveness
+of each NLP method. HTTP links and residual Markdown likely correlates to innaccuracies in NLP processes.
+
+\newpage
+
+\section{System Requirements and Use Cases}
+
+\subsection{System Requirements}
+
+\subsubsection{Hardware}
+
+During development, the project requires a significantly
+powerful machine to hold the Reddit corpus, maintain indexes on the corpus,
+host local hadoop instances, run Pig scripts, and hold intermediate data.
+
+During production, the project works through hadoop and json files on HDFS.
+A user's hadoop configuration that can support several gigabytes of text files
+will suffice for distributed processing.
+
+\subsubsection{Software}
+
+The following are major general software requirements.
+
+\begin{itemize}
+\setlength\itemsep{0mm}
+\item Apache Hadoop 1.2.1
+\item Apache Pig 0.13
+\item MongoDB  2.6.5
+\item pip
+\item maven
+\item graphviz
+\item Python 3
+\item Java 7
+\end{itemize}
+
+The following are python package requirements.
+\begin{itemize}
+\setlength\itemsep{0mm}
+\item nltk
+\item matplotlib
+\item numpy
+\item pymongo
+\item lxml
+\item sphinx
+
+\end{itemize}
+
+The follow are java package requirements. Note: many of the packages will be downloaded through maven.
+
+\begin{itemize}
+\setlength\itemsep{0mm}
+\item StanfordCoreNLP
+\item Java MongoDB Driver
+
+\end{itemize}
+
+\subsection{Use Cases}
+
+The tools produce an end data set that can be 
+queried to produce summaries and charts. The following
+describes the primitive useage of a Python-shell
+session to create charts and reports.
+
+\subsubsection{Search Subreddit(s)}
+
+\paragraph{Story} Search for a subreddit or an attribute
+of a subreddit and return matching results
+
+\subsubsection{Select Subreddits(s)}
+
+\paragraph{Story} After finding a subreddit, save that subreddit
+to later reference for chart and report creation
+
+\subsubsection{Write Subreddits(s)}
+
+\paragraph{Story} After selecting subreddits, write the relevant
+charts and reports for subreddits to file. 
+
+\subsubsection{Search Author(s)}
+
+\paragraph{Story} Search for an author or an attribute of
+an author and return matching authors
+
+\subsubsection{Select Authors(s)}
+
+\paragraph{Story} After finding authors, save an author 
+to later write their relevant charts and reports.
+
+\subsubsection{Write Author(s)}
+
+\paragraph{Story} After selecting authors, write the charts
+and reports to file so the user can view them later.
+
+\subsubsection{Search Submission(s)}
+
+\paragraph{Story} Search for attributes of a submission
+and return the submissions that match.
+
+\subsubsection{Select Submissions(s)}
+
+\paragraph{Story} After finding submissions, place the 
+desired submission into memory.
+
+\subsubsection{Write Submission(s)}
+
+\paragraph{Story} After selecting submissions, place
+the write the graphs and reports to file.
+
+\newpage
+
+\section{Design and Methodology}
+
+The process at large here seeks to extract information and index it for later use. The later use intended is largely
+expediated chart creation and textual summaries. Additionally, higher-ordered analysis could be performed on extracted
+results. The results from NLP techniques reside within a NoSQL document store. This permits greater focus on the analytical
+techniques and less focus on traditional RDBMS concerns. 
+
+\subsection{Annotated Data}
+
+The reddit corpus exists as documents similar to the following JSON-like string.
+The final data set will look like this. This final data-format 
+will likely be transformed to optimize the creation of graphs in the processed-data
+query phase. Intermediate hadoop-data will likely not take this form,
+because JSON parsing increases running time. 
+
+\begin{lstlisting}
+{
+    "_id" : ObjectId("53b673c4a23de94f08443e2d"),
+    "subreddit_id" : "t5_2qh1i",
+    "edited" : false,
+    "banned_by" : null,
+    "link_id" : "t3_29tnd4",
+    "link_author" : "Yevla",
+    "likes" : null,
+    "id" : "cioerj7",
+    "gilded" : 0,
+    "author" : "Jetemple",
+    "parent_id" : "t1_ciodgn2",
+    "score" : 1,
+    "approved_by" : null,
+    "controversiality" : 0,
+    "body" : "**Do you live in a cave?!?**",
+    "link_title" : "What type of person have you never met?",
+    "author_flair_css_class" : null,
+    "downs" : 0,
+    "body_html" : "&lt;div class=\"md\"&gt;&lt;p&gt;&lt;strong&gt;Do you live in a cave?!?&lt;/strong&gt;&lt;/p&gt;\n&lt;/div&gt;",
+    "is_root" : false,
+    "subreddit" : "AskReddit",
+    "score_hidden" : true,
+    "permalink" : "http://www.reddit.com/r/AskReddit/comments/29tnd4/what_type_of_person_have_you_never_met/cioerj7",
+    "name" : "t1_cioerj7",
+    "submission" : "50 :: What type of person have you never met?",
+    "created" : 1404512937,
+    "link_url" : "http://www.reddit.com/r/AskReddit/comments/29tnd4/what_type_of_person_have_you_never_met/",
+    "created_utc" : 1404484137,
+    "ups" : 1,
+    "fullname" : "t1_cioerj7",
+    "num_reports" : null,
+    "distinguished" : null,
+    "cleansed_text" : "Do you live in a cave?!? Richard Nixon is a president.",
+    "named_entites" : [ {"Richard Nixon" : "PERSON"} ],
+    "nouns" : [ "cave", "president" ],
+    "verbs" : [ "live", "is" ],
+    "sentiment"	: "neg",
+    "chunk"	: [('Do', 'VBP', 'O'), ('you', 'PRP', 'O'), ('live', 'VBP', 'O'), ('in', 'IN', 'O'), ('a', 'DT', 'O'), ('cave', 'NN', 'O'), ('?', '.', 'O'), ('!', '.', 'O')]
+}
+
+\end{lstlisting}
+
+\subsection{Current Events}
+
+\subsubsection{Intra-Site Discussion}
+
+Ujwal
+
+When a user discusses an item in the news, the record of the instance 
+gets recorded by the following datastructure. The collection created will
+track either a single event or will identify many. 
+
+Tracking discussion in Reddit can following many strategies. Identifying named
+entities in the annotated corpora provides strong features to use in a
+classifier. Additionally, subreddits provide strong indicators of the
+likihood a topic is about news/current events related topics. 
+
+\begin{lstlisting}
+
+Collection : current_events_instances
+{
+    event_name 	: "ukraine_conflict",
+    utc 	: 13415452356,
+    name 	: "t1_asfd234",
+    features	: {ukraine_regex : true, putin : true},
+    strength	: .75,
+    sentiment	: neg,
+    subreddit 	: news
+}
+
+\end{lstlisting}
+
+\subsubsection{Temporal Event Tracking}
+
+Ujwal
+
+This collection takes the Intra-Site discussion
+and orients it towards daily reports. This
+aggregation lends well towards user interfaces.
+
+\begin{lstlisting}
+
+Collection : event_summaries
+{
+    day 	: 02,
+    month	: 09,
+    year	: 2013,
+    events 	: {
+        "ukraine_conflict" : {
+            degree 	: 25,
+            density 	: 234,
+            sentiment 	: 34
+        },
+        "ISIS" : {
+            degree 	: 50,
+            density 	: 28,
+            sentiment 	: 23,
+        }
+    }
+}
+
+\end{lstlisting}
+
+\subsection{Content Labels}
+
+John
+
+\subsubsection{Content Filter}
+
+Profanity and unstructured discussion
+reduce the usefulness of reddit. Identifying memes
+by simple means can increase the informational density
+of reddit.
+
+The content filter takes from the annotated corpora sentiment,
+named entities, nouns, verbs, and unwanted ngrams to 
+produce a label of good or bad. A classifier can
+be made for this purpose.
+
+\begin{lstlisting}
+
+Collection : content_filter
+{
+    name 	: t3_asdf3sfd,
+    features 	: {meme : false, sentiment : neg}
+    label 	: good|bad
+}
+
+\end{lstlisting}
+
+\subsubsection{Memes}
+
+John
+
+Identifying meme useage across the site is invaluable to understand
+the evolution culture and community. Writing identifiers for particular
+presents interesting ways to track their popularity.
+
+
+\subsubsection{Contributor Status}
+
+Thainan
+
+Each author contributes to the site in some manner.
+This manifests in the positive or negative sentiment they
+exude through the site, the quality of their submitted content,
+or their popularity or posting frequency. Additionally,
+subreddit activity determines their interests and helps characterize them.
+
+\begin{lstlisting}
+Collection : authors
+
+{
+    subreddits	: [ { askreddit : 100 }, {aww : 13 }, {computers : 500} ],
+    sentiment 	: { positive : 1000 , negative : 103, neutral : 2000 },
+    collocation	: [ "cats", "beer", "austria", "nvidia" ],
+    bag_of_words: [ "taco", "apple", "australia" ]
+}
+
+\end{lstlisting}
+
+\subsubsection{Reposts}
+
+Thainan
+
+Reddit often declare another's submission to be previously submitted
+to the site. Reddit user's prefer new content. User's will often
+use the same phrases to announce a post already exists. Phrases like
+"repost." and other deragatory phrases are used to announce the fact.
+In addition to the common phrases, a single submission has many comments.
+A shallow tree containing the immediate child-comments of the submission
+often hold the repost announcements
+
+\begin{lstlisting}
+Collection : reposts
+{
+    name 	: "t3_asdf24",
+    claims 	: 20,
+    features 	: { "repost" : 20, "OP_is_f*g" : 300, "OP_is_bundle_of_sticks" : 2000}
+}
+\end{lstlisting}
+
+\subsubsection{Named Entity Trends}
+
+John
+
+The news events discussed in Reddit are receiving attention. The general mentions
+of individuals and places are not yet receiving a general attention. Maintaining
+a summary of view/index of each named entity would provide tremendous information. 
+The following data structure will allow query over individual entities.
+
+\begin{lstlisting}
+Collection : ner_trends
+{
+    "entity"	: "Barack Obama",
+    "total"	: 20000,
+    "daily"  : {
+    	20141208 : 200,
+    	20141209 : 12313
+    },
+    "subreddits" : ["news", "elections", "politics"],
+    "collocation": ["election" , "thanks", "obama", "hope"]
+}
+\end{lstlisting}
+
+\subsection{Data Consistency}
+
+\subsubsection{Completeness}
+
+Thainan
+
+The reddit corpus originates from a database system that uses base-36
+ids to identify records. The ids are sequential such that gaps between
+missing ordered ids can be interpreted as missing data. The missing
+gaps of posts can be pulled from reddit and included in the corpus. The
+end result produces an array of mising values.
+
+\subsubsection{Connectedness}
+
+John
+
+In order to gauge the completeness of the corpus, the tree structure 
+requires understanding of its connectedness. Any disjoint forests
+in the tree structure would decrease the conversational properties
+of reddit. The end result produces an array of comments
+without parent nodes. The missing parent submission and parents
+can be set to download. 
+
+\subsubsection{Well Formedness}
+
+John
+
+There exists formatting within reddit that impedes the efficiency of NLP tasks. Work must be done to isolate the syntactically useful material. Selecting the material based on regex is one practical example. Data cleaning is what we are doing. Using Python for this may be faster.
+
+\newpage
+
+\section{Implementation}
+
+The Python code is documented in the hadoop/python/docs directory.
+It is worth referencing this documentation whilst 
+reading the implementation. At the command line:
+
+\begin{lstlisting}
+$ cd hadoop/python/docs
+$ make html
+$ cd build/html
+$ firefox index.html
+\end{lstlisting}
+
+\subsection{Annotated Data}
+
+Code is ran through a combination of Pig and Hadoop Streaming jobs in Python.
+Common to NLP operations are the pipeline illustrated as follows:
+
+\subsubsection{Sentence Tokenization}
+
+\subsubsection{Word Tokenization}
+
+\subsubsection{Parts of Speech Tagging}
+
+\subsubsection{Phrase Chunking}
+
+\subsubsection{Named Entity Recognition}
+
+\subsubsection{Classifiers}
+
+\subsection{Named Entity Trends}
+
+The previously discussed annotated data presents
+information that allows one to track named entities
+and context over time. Reorganizing the data
+based on the entity aggregates interesting information. 
+The following describes the Map Reduce job that annotates
+data.  
+
+\paragraph{Map}
+
+This portion reads in json documents and applies
+html markup cleaning, sentence tokenization,
+word tokenization, parts of speech tagging,
+chunking, and named entity recognition. 
+The map orients the key and the json document
+as follows:
+
+\begin{lstlisting}
+key : entity
+value : {
+    entity : "\w+",
+    day : "<YYMMDD>",
+    subreddit : "\w+",
+}
+\end{lstlisting}
+
+
+\paragraph{Reduce}
+
+The reduce phase produces a document representing the following. 
+The 
+
+\begin{lstlisting}
+key : entity
+value : {
+    entity : "\w+",
+    days : {
+        <YYMMDD> : COUNT(*),
+    },
+    subreddits : {
+        <subreddit> : COUNT(*),
+    }
+}
+\end{lstlisting}
+
+\subsection{Charts}
+
+\subsubsection{Author Perspective}
+
+\paragraph{Sentiment} For each author queried, one can determine the sentiment they
+placed in the site. A chart renders their net sentiment 
+historically with a line chart. 
+
+\paragraph{Topics} For the top mentioned entities, a bar chart
+of their total recorded mentions are graphed.
+
+\subsubsection{Subreddit Persective}
+
+\paragraph{Sentiment} The positive and negative sentiment is graphed over
+time for the subreddit. 
+
+\paragraph{Topics} The most active named entities within the subreddit are displayed
+by frequency in a bar chart. A word cloud is generated for the user. 
+
+\subsubsection{Submision Perspective}
+
+\paragraph{Sentiment} The positive and negative sentiment is graphed
+over the lifetime of the submission.
+
+\paragraph{Topics} The most active named entities within the subreddit are displayed
+by frequency. A word cloud illustration is generated for the user.
+
+
+\newpage
+
+\section{Testing and Validation}
+
+\newpage
+
+\section{Conclusions}
+
+\newpage
+
+\section{References}
+
+\end{document}
